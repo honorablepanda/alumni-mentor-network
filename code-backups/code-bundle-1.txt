@@ -1,0 +1,496 @@
+File name: backupProjectCode.js
+
+Code:
+// backupProjectCode.js
+const fs = require("fs");
+const path = require("path");
+
+const OUTPUT_FOLDER = "code-backups";
+const MAX_CHARACTERS_PER_FILE = 500000; // ~500KB target size per file
+
+const ALLOWED_EXTENSIONS = [".js", ".jsx", ".json", ".html", ".css", ".ts", ".tsx", ".txt", ".md"];
+
+let bundles = [];
+let currentBundle = "";
+let bundleIndex = 1;
+
+function collectFiles(dir) {
+  const items = fs.readdirSync(dir, { withFileTypes: true });
+
+  items.forEach((item) => {
+    const fullPath = path.join(dir, item.name);
+
+    if (item.isDirectory()) {
+      collectFiles(fullPath);
+    } else {
+      const ext = path.extname(item.name).toLowerCase();
+      if (ALLOWED_EXTENSIONS.includes(ext)) {
+        const code = fs.readFileSync(fullPath, "utf8");
+
+        const entry = `File name: ${path.relative(".", fullPath)}\n\nCode:\n${code}\n\n---\n\n`;
+
+        if (currentBundle.length + entry.length > MAX_CHARACTERS_PER_FILE) {
+          bundles.push(currentBundle);
+          currentBundle = "";
+        }
+
+        currentBundle += entry;
+      }
+    }
+  });
+}
+
+function writeBundles() {
+  if (currentBundle) bundles.push(currentBundle);
+  fs.mkdirSync(OUTPUT_FOLDER, { recursive: true });
+
+  bundles.forEach((content, i) => {
+    const filePath = path.join(OUTPUT_FOLDER, `code-bundle-${i + 1}.txt`);
+    fs.writeFileSync(filePath, content, "utf8");
+    console.log(`✅ Saved ${filePath}`);
+  });
+}
+
+console.log("📦 Backing up project code files...");
+collectFiles(".");
+writeBundles();
+console.log("✅ Done. Code backups saved in:", OUTPUT_FOLDER);
+
+
+---
+
+File name: backupProjectStructure.js
+
+Code:
+// backupProjectStructure.js
+const fs = require("fs");
+const path = require("path");
+
+const OUTPUT_FOLDER = "structure-backups";
+const MAX_LINES_PER_FILE = 4000; // Adjust if needed for ChatGPT
+
+const outputLines = [];
+
+function walk(dir, prefix = "") {
+  const items = fs.readdirSync(dir, { withFileTypes: true });
+  items.forEach((item, idx) => {
+    const isLast = idx === items.length - 1;
+    const connector = isLast ? "└── " : "├── ";
+    outputLines.push(`${prefix}${connector}${item.name}`);
+
+    if (item.isDirectory()) {
+      walk(path.join(dir, item.name), prefix + (isLast ? "    " : "│   "));
+    }
+  });
+}
+
+function writeChunks() {
+  fs.mkdirSync(OUTPUT_FOLDER, { recursive: true });
+
+  let part = 1;
+  for (let i = 0; i < outputLines.length; i += MAX_LINES_PER_FILE) {
+    const chunk = outputLines.slice(i, i + MAX_LINES_PER_FILE).join("\n");
+    const filePath = path.join(OUTPUT_FOLDER, `project-structure-part${part}.txt`);
+    fs.writeFileSync(filePath, chunk, "utf8");
+    console.log(`✅ Saved ${filePath}`);
+    part++;
+  }
+}
+
+console.log("📂 Backing up project folder structure...");
+walk(".");
+writeChunks();
+console.log("✅ Done. Structure backups saved in:", OUTPUT_FOLDER);
+
+
+---
+
+File name: Commands to run backup scripts.txt
+
+Code:
+node backupProjectStructure.js
+node backupProjectCode.js
+
+
+---
+
+File name: components\AlumniBrowser.jsx
+
+Code:
+import React, { useState, useEffect } from "react";
+import { useAlumniNetwork } from "../hooks/useAlumniNetwork";
+
+/**
+ * Component to browse and search alumni.
+ */
+export default function AlumniBrowser() {
+  const { alumniList } = useAlumniNetwork();
+  const [search, setSearch] = useState("");
+
+  // Persist search term
+  useEffect(() => {
+    const savedSearch = localStorage.getItem("alumniSearch");
+    if (savedSearch) setSearch(savedSearch);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("alumniSearch", search);
+  }, [search]);
+
+  const filtered = alumniList.filter(
+    (alum) =>
+      alum.name.toLowerCase().includes(search.toLowerCase()) ||
+      alum.company.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div
+      className="p-4 border rounded bg-gray-50"
+      role="region"
+      aria-labelledby="alumni-browser-title"
+    >
+      <h2 id="alumni-browser-title" className="font-semibold mb-2">
+        Browse Alumni
+      </h2>
+      <input
+        type="search"
+        placeholder="Search by name or company"
+        className="border p-2 rounded w-full mb-3"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        aria-label="Search alumni by name or company"
+      />
+      <ul className="max-h-60 overflow-auto text-sm space-y-2" tabIndex={0}>
+        {filtered.length === 0 && <li>No alumni found.</li>}
+        {filtered.map((alum) => (
+          <li key={alum.id} className="border-b pb-2">
+            <div>
+              <strong>{alum.name}</strong> — {alum.company}
+            </div>
+            <div className="text-gray-600 text-xs">{alum.role}</div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+
+---
+
+File name: components\CommunityAMA.jsx
+
+Code:
+import React from "react";
+import { useAlumniNetwork } from "../hooks/useAlumniNetwork";
+
+/**
+ * Lists upcoming community AMA sessions.
+ */
+export default function CommunityAMA() {
+  const { amaSessions } = useAlumniNetwork();
+
+  return (
+    <div
+      className="p-4 border rounded bg-green-50"
+      role="region"
+      aria-labelledby="community-ama-title"
+    >
+      <h2 id="community-ama-title" className="font-semibold mb-2">
+        Community AMA Sessions
+      </h2>
+      <ul
+        className="list-disc list-inside text-sm max-h-48 overflow-auto space-y-2"
+        tabIndex={0}
+      >
+        {amaSessions.length === 0 && <li>No AMA sessions scheduled.</li>}
+        {amaSessions.map((session) => (
+          <li key={session.id}>
+            <strong>{session.topic}</strong> with <em>{session.host}</em> on{" "}
+            {session.date}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+
+---
+
+File name: components\IntroRequestForm.jsx
+
+Code:
+import React, { useState, useEffect } from "react";
+import { useAlumniNetwork } from "../hooks/useAlumniNetwork";
+
+/**
+ * Form to request introduction to an alumni.
+ */
+export default function IntroRequestForm() {
+  const { alumniList, generateIntroMessage, loading } = useAlumniNetwork();
+  const [selectedAlumId, setSelectedAlumId] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  // Load saved selection and message from localStorage
+  useEffect(() => {
+    const savedId = localStorage.getItem("selectedAlumId");
+    const savedMsg = localStorage.getItem("introMessage");
+    if (savedId) setSelectedAlumId(savedId);
+    if (savedMsg) setMessage(savedMsg);
+  }, []);
+
+  // Persist selection and message
+  useEffect(() => {
+    localStorage.setItem("selectedAlumId", selectedAlumId);
+  }, [selectedAlumId]);
+
+  useEffect(() => {
+    localStorage.setItem("introMessage", message);
+  }, [message]);
+
+  const handleGenerate = async () => {
+    if (!selectedAlumId) {
+      setError("Please select an alumni.");
+      return;
+    }
+    setError("");
+    const alum = alumniList.find((a) => a.id === selectedAlumId);
+    if (!alum) {
+      setError("Selected alumni not found.");
+      return;
+    }
+    try {
+      const msg = await generateIntroMessage(alum.name);
+      setMessage(msg);
+    } catch {
+      setError("Failed to generate introduction message. Please try again.");
+    }
+  };
+
+  return (
+    <div
+      className="p-4 border rounded bg-blue-50"
+      role="region"
+      aria-labelledby="intro-request-title"
+    >
+      <h2 id="intro-request-title" className="font-semibold mb-2">
+        Request Introduction
+      </h2>
+      {error && (
+        <div className="text-red-600 mb-2" role="alert" aria-live="assertive">
+          {error}
+        </div>
+      )}
+      <select
+        className="border p-2 rounded w-full mb-2"
+        value={selectedAlumId}
+        onChange={(e) => setSelectedAlumId(e.target.value)}
+        aria-label="Select alumni to request introduction"
+        disabled={loading}
+      >
+        <option value="">Select Alumni</option>
+        {alumniList.map((alum) => (
+          <option key={alum.id} value={alum.id}>
+            {alum.name} — {alum.company}
+          </option>
+        ))}
+      </select>
+      <button
+        className="bg-blue-700 text-white px-3 py-1 rounded"
+        onClick={handleGenerate}
+        disabled={!selectedAlumId || loading}
+        aria-busy={loading}
+      >
+        {loading ? "Generating..." : "Generate Intro Message"}
+      </button>
+      {message && (
+        <div
+          className="mt-3 p-2 bg-white border rounded text-sm whitespace-pre-line"
+          aria-live="polite"
+          role="region"
+          aria-label="Generated introduction message"
+        >
+          {message}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+---
+
+File name: components\NetworkAtCompany.jsx
+
+Code:
+import React, { useState, useEffect } from "react";
+import { useAlumniNetwork } from "../hooks/useAlumniNetwork";
+
+/**
+ * Shows user's network connections at a given company.
+ */
+export default function NetworkAtCompany() {
+  const { networkData } = useAlumniNetwork();
+  const [company, setCompany] = useState("");
+  const [connections, setConnections] = useState([]);
+
+  useEffect(() => {
+    const savedCompany = localStorage.getItem("networkCompany");
+    if (savedCompany) setCompany(savedCompany);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("networkCompany", company);
+    setConnections(networkData[company] || []);
+  }, [company, networkData]);
+
+  return (
+    <div
+      className="p-4 border rounded bg-yellow-50"
+      role="region"
+      aria-labelledby="network-company-title"
+    >
+      <h2 id="network-company-title" className="font-semibold mb-2">
+        Who Works Here?
+      </h2>
+      <input
+        type="text"
+        placeholder="Enter company name"
+        className="border p-2 rounded w-full mb-3"
+        value={company}
+        onChange={(e) => setCompany(e.target.value)}
+        aria-label="Enter company name to see network connections"
+      />
+      {company && (
+        <ul className="text-sm max-h-40 overflow-auto space-y-1" tabIndex={0}>
+          {connections.length === 0 && <li>No known connections at {company}.</li>}
+          {connections.map((person) => (
+            <li key={person.id}>
+              {person.name} — {person.position}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+
+---
+
+File name: hooks\useAlumniNetwork.js
+
+Code:
+import { useState, useCallback } from "react";
+import { mockAlumniList, mockAMASessions, mockNetworkData } from "../mock/mockAlumniData";
+
+/**
+ * Hook providing dummy data and AI simulation for Alumni Network Hub.
+ */
+export const useAlumniNetwork = () => {
+  const [alumniList] = useState(mockAlumniList);
+  const [amaSessions] = useState(mockAMASessions);
+  const [networkData] = useState(mockNetworkData);
+  const [loading, setLoading] = useState(false);
+
+  /**
+   * Simulates AI-generated intro message for a selected alumni.
+   * @param {string} alumName
+   */
+  const generateIntroMessage = useCallback(async (alumName) => {
+    setLoading(true);
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        setLoading(false);
+        resolve(`Hi ${alumName},\n\nI’d love an introduction to discuss career advice and opportunities. Thanks!`);
+      }, 1200);
+    });
+  }, []);
+
+  return {
+    alumniList,
+    amaSessions,
+    networkData,
+    generateIntroMessage,
+    loading,
+  };
+};
+
+
+---
+
+File name: index.jsx
+
+Code:
+import React from "react";
+import AlumniBrowser from "./components/AlumniBrowser";
+import IntroRequestForm from "./components/IntroRequestForm";
+import CommunityAMA from "./components/CommunityAMA";
+import NetworkAtCompany from "./components/NetworkAtCompany";
+
+export default function AlumniMentorNetworkHub() {
+  return (
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <h1 className="text-2xl font-bold mb-4">👥 Alumni & Mentor Network Hub</h1>
+      <AlumniBrowser />
+      <IntroRequestForm />
+      <CommunityAMA />
+      <NetworkAtCompany />
+    </div>
+  );
+}
+
+
+---
+
+File name: mock\mockAlumniData.js
+
+Code:
+export const mockAlumniList = [
+  { id: "a1", name: "Alice Johnson", company: "TechCorp", role: "Software Engineer" },
+  { id: "a2", name: "Bob Lee", company: "InnovateX", role: "Product Manager" },
+  { id: "a3", name: "Carol Smith", company: "DataWorks", role: "Data Analyst" },
+];
+
+export const mockAMASessions = [
+  { id: "ama1", topic: "Breaking into Tech", host: "Alice Johnson", date: "2025-07-10" },
+  { id: "ama2", topic: "Product Management 101", host: "Bob Lee", date: "2025-07-15" },
+];
+
+export const mockNetworkData = {
+  TechCorp: [
+    { id: "n1", name: "Alice Johnson", position: "Software Engineer" },
+    { id: "n2", name: "David Kim", position: "UX Designer" },
+  ],
+  InnovateX: [
+    { id: "n3", name: "Bob Lee", position: "Product Manager" },
+  ],
+  DataWorks: [
+    { id: "n4", name: "Carol Smith", position: "Data Analyst" },
+  ],
+};
+
+
+---
+
+File name: structure-backups\project-structure-part1.txt
+
+Code:
+├── backupProjectCode.js
+├── backupProjectStructure.js
+├── Commands to run backup scripts.txt
+├── components
+│   ├── AlumniBrowser.jsx
+│   ├── CommunityAMA.jsx
+│   ├── IntroRequestForm.jsx
+│   └── NetworkAtCompany.jsx
+├── hooks
+│   └── useAlumniNetwork.js
+├── index.jsx
+└── mock
+    └── mockAlumniData.js
+
+---
+
